@@ -78,6 +78,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.jena.atlas.RuntimeIOException;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.rdf.model.Model;
@@ -528,7 +529,8 @@ public abstract class ContentExposingResource extends FedoraBaseResource {
         evaluateRequestPreconditions(request, servletResponse, resource, session, false);
     }
 
-    private static void evaluateRequestPreconditions(final Request request,
+    @VisibleForTesting
+    static void evaluateRequestPreconditions(final Request request,
                                                      final HttpServletResponse servletResponse,
                                                      final FedoraResource resource,
                                                      final Session session,
@@ -563,13 +565,8 @@ public abstract class ContentExposingResource extends FedoraBaseResource {
         }
 
         Response.ResponseBuilder builder = request.evaluatePreconditions(etag);
-        if ( builder != null ) {
-            builder = builder.entity("ETag mismatch");
-        } else {
+        if ( builder == null ) {
             builder = request.evaluatePreconditions(roundedDate);
-            if ( builder != null ) {
-                builder = builder.entity("Date mismatch");
-            }
         }
 
         if (builder != null && cacheControl ) {
