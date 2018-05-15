@@ -49,6 +49,8 @@ import org.modeshape.jcr.api.observation.Event;
 
 import com.google.common.eventbus.EventBus;
 
+import java.util.Collections;
+
 /**
  * <p>SimpleObserverTest class.</p>
  *
@@ -89,9 +91,14 @@ public class SimpleObserverTest {
     @Mock
     private NodeType mockNodeType, fedoraContainer;
 
+    @Mock
+    private FedoraEventDecorator mockEventDecorator;
+
     @Before
     public void setUp() throws RepositoryException {
         mockSession = mock(Session.class, Mockito.withSettings().extraInterfaces(org.modeshape.jcr.api.Session.class));
+        mockEventDecorator = mock(FedoraEventDecorator.class);
+        when(mockEventDecorator.decorates()).thenReturn(evt -> true);
         when(mockRepository.login()).thenReturn((org.modeshape.jcr.api.Session) mockSession);
         when(mockEvents.hasNext()).thenReturn(true, false);
         when(mockEvents.next()).thenReturn(mockEvent);
@@ -109,6 +116,7 @@ public class SimpleObserverTest {
         setField(testObserver, "eventFilter", (EventFilter) x -> true);
         setField(testObserver, "eventBus", mockBus);
         setField(testObserver, "session", mockSession);
+        setField(testObserver, "eventDecorators", Collections.singletonList(mockEventDecorator));
     }
 
     @Test
@@ -122,6 +130,8 @@ public class SimpleObserverTest {
     public void testOnEvent() throws RepositoryException {
         testObserver.onEvent(mockEvents);
         verify(mockBus).post(any(FedoraEvent.class));
+        verify(mockEventDecorator).decorates();
+        verify(mockEventDecorator).accept(any(), any());
     }
 
     @Test
@@ -129,5 +139,7 @@ public class SimpleObserverTest {
         setField(testObserver, "eventFilter", (EventFilter) e -> false);
         testObserver.onEvent(mockEvents);
         verify(mockBus, never()).post(any(FedoraEvent.class));
+        verify(mockEventDecorator, never()).decorates();
+        verify(mockEventDecorator, never()).accept(any(), any());
     }
 }

@@ -52,8 +52,10 @@ import static org.slf4j.LoggerFactory.getLogger;
 import  org.fcrepo.metrics.RegistryService;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -161,6 +163,16 @@ public class SimpleObserver implements EventListener {
         };
     }
 
+    private static Consumer<FedoraEvent> decorate(final List<FedoraEventDecorator> decorators, final Session session) {
+        return event -> {
+            decorators.forEach(decorator -> {
+                if (decorator.decorates().test(event)) {
+                    decorator.accept(session, event);
+                }
+            });
+        };
+    }
+
     @Inject
     private FedoraRepository repository;
 
@@ -172,6 +184,9 @@ public class SimpleObserver implements EventListener {
 
     @Inject
     private EventFilter eventFilter;
+
+    @Inject
+    private List<FedoraEventDecorator> eventDecorators;
 
     // THIS SESSION SHOULD NOT BE USED TO LOOK UP NODES
     // it is used only to register and deregister this observer to the JCR
@@ -222,6 +237,8 @@ public class SimpleObserver implements EventListener {
             eventMapper.apply(iteratorToStream(filteredEvents))
                 .map(filterAndDerefResourceTypes(lookupSession))
                 .flatMap(handleMoveEvents(lookupSession))
+                .peek(event -> LOGGER.warn(">>>> Decorating event: {}", event.getEventID(), event.getPath()))
+                .peek(decorate(eventDecorators, lookupSession))
                 .forEach(this::post);
         } finally {
             if (lookupSession != null) {
